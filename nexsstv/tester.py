@@ -1,5 +1,6 @@
 import sys
 import os
+import tempfile
 import numpy as np
 from PIL import Image
 
@@ -17,7 +18,7 @@ def run_self_test():
     
     # 1. Create a dummy image
     print("1. Testing Image Fit (800x600)...")
-    test_img_path = "/tmp/nexsstv_test_input.png"
+    test_img_path = os.path.join(tempfile.gettempdir(), "nexsstv_test_input.png")
     img = Image.new('RGB', (1000, 500), color=(0, 255, 0)) # Non-800x600 input
     img.save(test_img_path)
 
@@ -86,7 +87,7 @@ def run_self_test():
         stripe_dict[i] = None
     
     final_img = ImageProcessor.merge_stripes(stripe_dict)
-    output_path = "/tmp/nexsstv_test_output.png"
+    output_path = os.path.join(tempfile.gettempdir(), "nexsstv_test_output.png")
     final_img.save(output_path)
     print(f"   Merged image with horizontal gap saved to {output_path}")
     

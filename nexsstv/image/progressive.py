@@ -33,7 +33,7 @@ class ImageProcessor:
                 if scale < 1.0:
                     w = max(1, int(ImageProcessor.TARGET_RES[0] * scale))
                     if w < ImageProcessor.MIN_REDUCED_WIDTH:
-                        continue
+                        break
                     reduced = stripe_img.resize((w, ImageProcessor.STRIPE_HEIGHT), Image.Resampling.LANCZOS)
                     # Bilinear upsampling is intentionally softer and often compresses better at low bit budgets.
                     candidate_img = reduced.resize((ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), Image.Resampling.BILINEAR)

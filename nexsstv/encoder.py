@@ -77,7 +77,7 @@ def main():
             
         # 4. Padding (Minimal to keep stream synchronous)
         while symbols_sent < Config.SYMBOLS_PER_STRIPE:
-            # Padding with DQPSK (0,0) symbols (1+0j) preserves carrier energy and phase continuity.
+            # np.ones() makes 1+0j on each subcarrier (DQPSK (0,0) symbols) to preserve phase continuity.
             audio_signal.append(modem.modulate_symbol(np.ones(modem.n_subcarriers, dtype=np.complex128)))
             symbols_sent += 1
             
