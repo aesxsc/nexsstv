@@ -76,7 +76,7 @@ def main():
             
         # 4. Padding (Minimal to keep stream synchronous)
         while symbols_sent < Config.SYMBOLS_PER_STRIPE:
-            # Use deterministic all-zero DQPSK steps ((0,0)->1+0j) for predictable decoder behavior.
+            # Use deterministic DQPSK (0,0) symbols (1+0j) for predictable decoder behavior.
             audio_signal.append(modem.modulate_symbol(np.ones(modem.n_subcarriers, dtype=np.complex128)))
             symbols_sent += 1
             

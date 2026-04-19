@@ -49,7 +49,10 @@ class ImageProcessor:
                 output = io.BytesIO()
                 flat.save(output, format='WEBP', quality=1, method=6)
                 data = output.getvalue()
-                stripes.append(data if len(data) <= len(best) else best)
+                if best is None or len(data) <= len(best):
+                    stripes.append(data)
+                else:
+                    stripes.append(best)
             
         return stripes
 

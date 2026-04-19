@@ -86,7 +86,7 @@ def run_self_test():
     final_img.save(output_path)
     print(f"   Merged image with horizontal gap saved to {output_path}")
     
-    print("\n=== Self-Test V4 Complete ===")
+    print("\n=== NextGen Self-Test Complete ===")
 
 if __name__ == "__main__":
     run_self_test()
