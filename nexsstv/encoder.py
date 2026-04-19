@@ -78,7 +78,7 @@ def main():
         # 4. Padding (Minimal to keep stream synchronous)
         while symbols_sent < Config.SYMBOLS_PER_STRIPE:
             # np.ones() emits repeated 1+0j carriers, i.e. repeated DQPSK (0,0) symbols.
-            # This preserves carrier energy and phase continuity, unlike zero vectors.
+            # This is intentional padding: it preserves carrier energy/phase continuity while matching DQPSK framing.
             audio_signal.append(modem.modulate_symbol(np.ones(modem.n_subcarriers, dtype=np.complex128)))
             symbols_sent += 1
             

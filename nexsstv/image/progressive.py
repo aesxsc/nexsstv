@@ -30,6 +30,7 @@ class ImageProcessor:
                     if w < ImageProcessor.MIN_REDUCED_WIDTH:
                         continue
                     reduced = stripe_img.resize((w, ImageProcessor.STRIPE_HEIGHT), Image.Resampling.LANCZOS)
+                    # Bilinear upsampling is intentionally softer and often compresses better at low bit budgets.
                     candidate_img = reduced.resize((ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), Image.Resampling.BILINEAR)
                 else:
                     candidate_img = stripe_img
@@ -58,6 +59,7 @@ class ImageProcessor:
                     continue
                 break
             else:
+                # Last-resort fallback when no scale/quality candidate can meet the byte budget.
                 arr = np.array(stripe_img).reshape(-1, 3)
                 avg = tuple(np.mean(arr, axis=0).astype(np.uint8).tolist())
                 flat = Image.new('RGB', (ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), avg)
