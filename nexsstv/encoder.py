@@ -76,7 +76,7 @@ def main():
             
         # 4. Padding (Minimal to keep stream synchronous)
         while symbols_sent < Config.SYMBOLS_PER_STRIPE:
-            audio_signal.append(modem.modulate_symbol(np.ones(params['n_subcarriers'], dtype=np.complex128)))
+            audio_signal.append(modem.modulate_symbol(np.ones(modem.n_subcarriers, dtype=np.complex128)))
             symbols_sent += 1
             
         if (i+1) % 15 == 0:

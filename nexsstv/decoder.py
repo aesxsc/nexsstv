@@ -65,6 +65,7 @@ def main():
                 decoded_bits = codec.viterbi_decode(deinterleaved)
                 usable = (len(decoded_bits) // 8) * 8
                 if usable == 0:
+                    # Not enough recovered bits to reconstruct even one byte.
                     continue
                 byte_data = np.packbits(decoded_bits[:usable]).tobytes()
                 stripe_id, data = StripeFramer.unpack_stripe(byte_data)
