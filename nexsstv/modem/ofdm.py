@@ -4,17 +4,20 @@ from scipy.fftpack import fft, ifft
 class Modem:
     def __init__(self, fs, f_min, f_max, n_subcarriers, cp_ratio=0.125):
         self.fs = fs
-        self.n_subcarriers = n_subcarriers
         self.cp_ratio = cp_ratio
         
         # 1024 FFT for 26ms symbol duration
         self.fft_size = 1024
         self.freq_res = fs / self.fft_size
-        
-        f_center = (f_min + f_max) / 2
-        self.center_bin = int(f_center / self.freq_res)
-        
-        self.last_phases = np.ones(n_subcarriers, dtype=np.complex128)
+
+        min_bin = max(2, int(np.ceil(f_min / self.freq_res)))
+        max_bin = min((self.fft_size // 2) - 2, int(np.floor(f_max / self.freq_res)))
+        available = max(1, max_bin - min_bin + 1)
+        self.n_subcarriers = min(int(n_subcarriers), int(available))
+        self.carrier_bins = np.arange(min_bin, min_bin + self.n_subcarriers)
+        self.mirror_bins = (-self.carrier_bins) % self.fft_size
+
+        self.last_phases = np.ones(self.n_subcarriers, dtype=np.complex128)
 
     def dqpsk_map(self, bits):
         mapping = { (0,0): 1+0j, (0,1): 0+1j, (1,1): -1+0j, (1,0): 0-1j }
@@ -45,11 +48,8 @@ class Modem:
             self.last_phases = current_phases
 
         spectrum = np.zeros(self.fft_size, dtype=np.complex128)
-        start_bin = self.center_bin - self.n_subcarriers // 2
-        indices = np.arange(start_bin, start_bin + self.n_subcarriers)
-        
-        spectrum[indices] = current_phases
-        spectrum[self.fft_size - indices] = np.conj(current_phases)
+        spectrum[self.carrier_bins] = current_phases
+        spectrum[self.mirror_bins] = np.conj(current_phases)
         
         time_data = np.real(ifft(spectrum))
         cp_len = int(self.fft_size * self.cp_ratio)
@@ -60,9 +60,7 @@ class Modem:
         symbol_data = time_data[cp_len : cp_len + self.fft_size]
         spectrum = fft(symbol_data)
         
-        start_bin = self.center_bin - self.n_subcarriers // 2
-        indices = np.arange(start_bin, start_bin + self.n_subcarriers)
-        current_phases = spectrum[indices]
+        current_phases = spectrum[self.carrier_bins]
         
         if is_pilot:
             self.last_phases = current_phases

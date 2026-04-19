@@ -9,44 +9,48 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from nexsstv.config import Config
 from nexsstv.image.progressive import ImageProcessor
 from nexsstv.fec.fountain import StripeFramer
+from nexsstv.fec.robust import ChannelCodec
 from nexsstv.modem.ofdm import Modem
-from nexsstv.sync.preamble import Preamble
 
 def run_self_test():
-    print("=== NexSSTV Self-Test V4 (Analog-Digital Hybrid) ===")
+    print("=== NexSSTV NextGen Self-Test ===")
     
     # 1. Create a dummy image
     print("1. Testing Image Fit (800x600)...")
-    test_img_path = "test_input.png"
+    test_img_path = "/tmp/nexsstv_test_input.png"
     img = Image.new('RGB', (1000, 500), color=(0, 255, 0)) # Non-800x600 input
     img.save(test_img_path)
     
-    stripes = ImageProcessor.encode_image(test_img_path, quality=30)
+    stripes = ImageProcessor.encode_image(
+        test_img_path,
+        quality=Config.DEFAULT_QUALITY,
+        max_bytes=Config.MAX_STRIPE_BYTES,
+    )
     print(f"   Generated {len(stripes)} stripes.")
     
     # 2. Framing & Modem Loopback
-    print("2. Testing Stripe Framing & Modem Loopback...")
-    params = Config.get_mode_params('classic')
+    print("2. Testing Stripe Framing + FEC + Modem Loopback...")
+    params = Config.get_mode_params('normal')
     modem = Modem(Config.FS, params['f_min'], params['f_max'], params['n_subcarriers'], Config.CP_RATIO)
+    codec = ChannelCodec()
     
     # Test first stripe
     stripe_id = 0
     raw_data = stripes[0]
     packet = StripeFramer.pack_stripe(stripe_id, raw_data)
-    
-    # Bits
-    bits = []
-    for byte in packet:
-        bits.extend([int(b) for b in bin(byte)[2:].zfill(8)])
-    
-    bits_per_symbol = params['n_subcarriers'] * Config.BITS_PER_SYMBOL
+    bits = np.unpackbits(np.frombuffer(packet, dtype=np.uint8))
+    coded = codec.encode(bits)
+    coded = codec.interleave(coded, depth=Config.INTERLEAVER_DEPTH)
+     
+    bits_per_symbol = modem.n_subcarriers * Config.BITS_PER_SYMBOL
     audio_signal = [modem.modulate_symbol(None, is_pilot=True)]
     
-    for i in range(0, len(bits), bits_per_symbol):
-        chunk = bits[i : i + bits_per_symbol]
-        if len(chunk) < bits_per_symbol: chunk += [0] * (bits_per_symbol - len(chunk))
-        audio_signal.append(modem.modulate_symbol(modem.dbpsk_map(chunk)))
-    
+    for i in range(0, len(coded), bits_per_symbol):
+        chunk = coded[i : i + bits_per_symbol]
+        if len(chunk) < bits_per_symbol:
+            chunk = np.concatenate([chunk, np.zeros(bits_per_symbol - len(chunk), dtype=np.uint8)])
+        audio_signal.append(modem.modulate_symbol(modem.dqpsk_map(chunk)))
+     
     # Decode loopback
     modem_rx = Modem(Config.FS, params['f_min'], params['f_max'], params['n_subcarriers'], Config.CP_RATIO)
     modem_rx.demodulate_symbol(audio_signal[0], is_pilot=True)
@@ -54,13 +58,14 @@ def run_self_test():
     rx_bits = []
     for sig in audio_signal[1:]:
         diff = modem_rx.demodulate_symbol(sig)
-        rx_bits.extend(modem_rx.dbpsk_demap(diff))
-    
-    # Convert bits to bytes
-    rx_bytes = bytearray()
-    for k in range(0, (len(rx_bits) // 8) * 8, 8):
-        rx_bytes.append(int("".join(map(str, rx_bits[k:k+8])), 2))
-    
+        rx_bits.extend(modem_rx.dqpsk_demap(diff))
+
+    rx_bits = np.array(rx_bits[:len(coded)], dtype=np.uint8)
+    rx_bits = codec.deinterleave(rx_bits, depth=Config.INTERLEAVER_DEPTH)
+    decoded = codec.viterbi_decode(rx_bits)
+    usable = (len(decoded) // 8) * 8
+    rx_bytes = np.packbits(decoded[:usable]).tobytes()
+     
     # Unpack
     sid, sdata = StripeFramer.unpack_stripe(rx_bytes)
     if sid == stripe_id and sdata == raw_data:
@@ -77,8 +82,9 @@ def run_self_test():
         stripe_dict[i] = None
     
     final_img = ImageProcessor.merge_stripes(stripe_dict)
-    final_img.save("test_output.png")
-    print("   Merged image with horizontal gap saved to test_output.png")
+    output_path = "/tmp/nexsstv_test_output.png"
+    final_img.save(output_path)
+    print(f"   Merged image with horizontal gap saved to {output_path}")
     
     print("\n=== Self-Test V4 Complete ===")
 
