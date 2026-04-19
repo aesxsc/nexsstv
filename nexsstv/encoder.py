@@ -21,26 +21,27 @@ def main():
     parser.add_argument("--mode", choices=["normal", "ultra", "classic"], default="normal")
     parser.add_argument("--quality", type=int, default=Config.DEFAULT_QUALITY, help="WebP quality")
     args = parser.parse_args()
-
-    # 1. Processing
-    print("Processing 800x600 image (NextGen robust mode)...")
-    stripes = ImageProcessor.encode_image(
-        args.input_image,
-        quality=args.quality,
-        max_bytes=Config.MAX_STRIPE_BYTES,
-    )
     
-    # 2. Setup
+    # 1. Setup
     params = Config.get_mode_params(args.mode)
     modem = Modem(Config.FS, params['f_min'], params['f_max'], params['n_subcarriers'], Config.CP_RATIO)
-    codec = ChannelCodec()
+    codec = ChannelCodec(rate=Config.CODING_RATE)
     preamble = Preamble(samples_per_bit=16) 
     sync_burst = preamble.generate_signal(Config.FS, f_center=(params['f_min'] + params['f_max']) / 2)
     
     audio_signal = [np.zeros(2048)] # Lead-in
     bits_per_symbol = modem.n_subcarriers * Config.BITS_PER_SYMBOL
     stripe_capacity = bits_per_symbol * Config.SYMBOLS_PER_STRIPE
-    max_raw_bits = (stripe_capacity // 2) - (codec.CONSTRAINT - 1)
+    max_raw_bits = codec.max_input_bits_for_capacity(stripe_capacity)
+    max_stripe_bytes = max(16, min(Config.MAX_STRIPE_BYTES, max_raw_bits // 8 - 5))
+
+    # 2. Processing
+    print("Processing 800x600 image (NextGen robust mode)...")
+    stripes = ImageProcessor.encode_image(
+        args.input_image,
+        quality=args.quality,
+        max_bytes=max_stripe_bytes,
+    )
     
     print(f"Modulating {Config.NUM_STRIPES} stripes (target <= 60s)...")
     for i, stripe_data in enumerate(stripes):

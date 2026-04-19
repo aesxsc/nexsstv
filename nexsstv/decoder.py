@@ -26,7 +26,7 @@ def main():
     
     params = Config.get_mode_params(args.mode)
     modem = Modem(Config.FS, params['f_min'], params['f_max'], params['n_subcarriers'], Config.CP_RATIO)
-    codec = ChannelCodec()
+    codec = ChannelCodec(rate=Config.CODING_RATE)
     preamble = Preamble(samples_per_bit=16)
     sync_template = preamble.generate_signal(Config.FS, f_center=(params['f_min'] + params['f_max']) / 2)
     

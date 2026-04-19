@@ -20,19 +20,24 @@ def run_self_test():
     test_img_path = "/tmp/nexsstv_test_input.png"
     img = Image.new('RGB', (1000, 500), color=(0, 255, 0)) # Non-800x600 input
     img.save(test_img_path)
-    
+
+    params = Config.get_mode_params('normal')
+    modem = Modem(Config.FS, params['f_min'], params['f_max'], params['n_subcarriers'], Config.CP_RATIO)
+    codec = ChannelCodec(rate=Config.CODING_RATE)
+    bits_per_symbol = modem.n_subcarriers * Config.BITS_PER_SYMBOL
+    stripe_capacity = bits_per_symbol * Config.SYMBOLS_PER_STRIPE
+    max_raw_bits = codec.max_input_bits_for_capacity(stripe_capacity)
+    max_stripe_bytes = max(16, min(Config.MAX_STRIPE_BYTES, max_raw_bits // 8 - 5))
+
     stripes = ImageProcessor.encode_image(
         test_img_path,
         quality=Config.DEFAULT_QUALITY,
-        max_bytes=Config.MAX_STRIPE_BYTES,
+        max_bytes=max_stripe_bytes,
     )
     print(f"   Generated {len(stripes)} stripes.")
     
     # 2. Framing & Modem Loopback
     print("2. Testing Stripe Framing + FEC + Modem Loopback...")
-    params = Config.get_mode_params('normal')
-    modem = Modem(Config.FS, params['f_min'], params['f_max'], params['n_subcarriers'], Config.CP_RATIO)
-    codec = ChannelCodec()
     
     # Test first stripe
     stripe_id = 0
@@ -42,7 +47,6 @@ def run_self_test():
     coded = codec.encode(bits)
     coded = codec.interleave(coded, depth=Config.INTERLEAVER_DEPTH)
      
-    bits_per_symbol = modem.n_subcarriers * Config.BITS_PER_SYMBOL
     audio_signal = [modem.modulate_symbol(None, is_pilot=True)]
     
     for i in range(0, len(coded), bits_per_symbol):

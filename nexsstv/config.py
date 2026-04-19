@@ -28,13 +28,14 @@ class Config:
         return Config.ULTRA
 
     # Image Details
-    STRIPE_HEIGHT = 10
-    NUM_STRIPES = 60
+    STRIPE_HEIGHT = 12
+    NUM_STRIPES = 50
     TARGET_RES = (800, 600)
     
     # Transmission controls (target: <= 60s)
-    DEFAULT_QUALITY = 30
-    MAX_STRIPE_BYTES = 250
-    INTERLEAVER_DEPTH = 32
+    DEFAULT_QUALITY = 38
+    MAX_STRIPE_BYTES = 292
+    INTERLEAVER_DEPTH = 40
+    CODING_RATE = "2/3"
     GAP = 0 
-    SYMBOLS_PER_STRIPE = 37
+    SYMBOLS_PER_STRIPE = 32

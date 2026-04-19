@@ -29,6 +29,16 @@ class ImageProcessor:
                 else:
                     candidate_img = stripe_img
 
+                # Keep perfectly clean stripes when lossless fits in the budget.
+                if max_bytes is not None:
+                    output = io.BytesIO()
+                    candidate_img.save(output, format='WEBP', lossless=True, method=6)
+                    lossless = output.getvalue()
+                    best = lossless if best is None or len(lossless) < len(best) else best
+                    if len(lossless) <= max_bytes:
+                        stripes.append(lossless)
+                        break
+
                 q = int(quality)
                 while q >= 1:
                     output = io.BytesIO()
