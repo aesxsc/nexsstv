@@ -7,7 +7,8 @@ class ChannelCodec:
     CONSTRAINT = 7
     POLY = (0o133, 0o171)
     N_STATES = 1 << (CONSTRAINT - 1)
-    LARGE_METRIC = 10**9
+    # Upper bound metric used as "infinity" in Viterbi path cost initialization.
+    LARGE_METRIC = 1_000_000_000
     PUNCTURE_PATTERNS = {
         "1/2": np.array([1, 1], dtype=np.uint8),
         "2/3": np.array([1, 1, 1, 0], dtype=np.uint8),

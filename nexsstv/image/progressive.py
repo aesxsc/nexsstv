@@ -66,8 +66,8 @@ class ImageProcessor:
             else:
                 # Last-resort fallback when no scale/quality candidate can meet the byte budget.
                 arr = np.array(stripe_img).reshape(-1, 3)
-                avg = tuple(np.mean(arr, axis=0).astype(np.uint8).tolist())
-                flat = Image.new('RGB', (ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), avg)
+                average_color = tuple(np.mean(arr, axis=0).astype(np.uint8).tolist())
+                flat = Image.new('RGB', (ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), average_color)
                 output = io.BytesIO()
                 flat.save(output, format='WEBP', quality=1, method=6)
                 data = output.getvalue()
