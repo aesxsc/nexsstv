@@ -7,6 +7,7 @@ class ChannelCodec:
     CONSTRAINT = 7
     POLY = (0o133, 0o171)
     N_STATES = 1 << (CONSTRAINT - 1)
+    LARGE_METRIC = 10**9
     PUNCTURE_PATTERNS = {
         "1/2": np.array([1, 1], dtype=np.uint8),
         "2/3": np.array([1, 1, 1, 0], dtype=np.uint8),
@@ -104,7 +105,7 @@ class ChannelCodec:
         coded_bits = mother_bits[: n_pairs * 2].reshape(n_pairs, 2)
         valid = valid[: n_pairs * 2].reshape(n_pairs, 2)
 
-        inf = 10**9
+        inf = self.LARGE_METRIC
         metrics = np.full(self.N_STATES, inf, dtype=np.int32)
         metrics[0] = 0
         prev_state = np.zeros((n_pairs, self.N_STATES), dtype=np.int16)

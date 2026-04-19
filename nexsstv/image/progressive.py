@@ -7,6 +7,8 @@ class ImageProcessor:
     TARGET_RES = Config.TARGET_RES
     STRIPE_HEIGHT = Config.STRIPE_HEIGHT
     NUM_STRIPES = Config.NUM_STRIPES
+    SCALE_FACTORS = (1.0, 0.75, 0.5, 0.375, 0.25)
+    QUALITY_STEP = 3
 
     @staticmethod
     def encode_image(image_path, quality=30, max_bytes=None):
@@ -21,7 +23,7 @@ class ImageProcessor:
             stripe_img = img.crop(box)
 
             best = None
-            for scale in (1.0, 0.75, 0.5, 0.375, 0.25):
+            for scale in ImageProcessor.SCALE_FACTORS:
                 if scale < 1.0:
                     w = max(1, int(ImageProcessor.TARGET_RES[0] * scale))
                     reduced = stripe_img.resize((w, ImageProcessor.STRIPE_HEIGHT), Image.Resampling.LANCZOS)
@@ -48,7 +50,7 @@ class ImageProcessor:
                     if max_bytes is None or len(data) <= max_bytes:
                         stripes.append(data)
                         break
-                    q -= 3
+                    q -= ImageProcessor.QUALITY_STEP
                 else:
                     continue
                 break

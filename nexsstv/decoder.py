@@ -31,7 +31,7 @@ def main():
     sync_template = preamble.generate_signal(Config.FS, f_center=(params['f_min'] + params['f_max']) / 2)
     
     received_stripes = {}
-    dropped_packets = 0
+    failed_stripes = 0
     symbol_len = modem.fft_size + int(modem.fft_size * modem.cp_ratio)
     
     print(f"Decoding {args.mode} nextgen stream...")
@@ -67,7 +67,7 @@ def main():
                 usable = (len(decoded_bits) // 8) * 8
                 if usable == 0:
                     # Not enough recovered bits to reconstruct even one byte.
-                    dropped_packets += 1
+                    failed_stripes += 1
                 else:
                     byte_data = np.packbits(decoded_bits[:usable]).tobytes()
                     stripe_id, data = StripeFramer.unpack_stripe(byte_data)
@@ -80,9 +80,9 @@ def main():
                                 if len(received_stripes) % 15 == 0 or len(received_stripes) == 1:
                                     print(f"   Decoded {len(received_stripes)}/{Config.NUM_STRIPES} stripes...")
                             else:
-                                dropped_packets += 1
+                                failed_stripes += 1
                     else:
-                        dropped_packets += 1
+                        failed_stripes += 1
         else:
             ptr += 512 # Skip
 
@@ -91,8 +91,8 @@ def main():
         final_img = ImageProcessor.merge_stripes(received_stripes)
         final_img.save(args.output_image)
         print(f"Success! Image saved to {args.output_image}")
-        if dropped_packets:
-            print(f"Note: {dropped_packets} packet(s) failed integrity checks and were discarded.")
+        if failed_stripes:
+            print(f"Note: {failed_stripes} stripe packet(s) failed integrity checks and were discarded.")
     else:
         print("Failed to decode any stripes. Verify signal quality.")
 
