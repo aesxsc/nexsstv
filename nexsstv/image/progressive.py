@@ -14,13 +14,18 @@ class ImageProcessor:
     @staticmethod
     def encode_image(image_path, quality=30, max_bytes=None):
         """Resizes image to 800x600 and splits into independent WebP stripes."""
-        img = Image.open(image_path)
+        img = Image.open(image_path).convert("RGB")
         # Use 'fit' to fill 800x600 without stretching (crops if necessary)
         img = ImageOps.fit(img, ImageProcessor.TARGET_RES, Image.Resampling.LANCZOS)
         
         stripes = []
         for i in range(ImageProcessor.NUM_STRIPES):
-            box = (0, i * ImageProcessor.STRIPE_HEIGHT, 800, (i + 1) * ImageProcessor.STRIPE_HEIGHT)
+            box = (
+                0,
+                i * ImageProcessor.STRIPE_HEIGHT,
+                ImageProcessor.TARGET_RES[0],
+                (i + 1) * ImageProcessor.STRIPE_HEIGHT,
+            )
             stripe_img = img.crop(box)
 
             best = None
