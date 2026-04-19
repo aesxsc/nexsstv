@@ -68,21 +68,21 @@ def main():
                 if usable == 0:
                     # Not enough recovered bits to reconstruct even one byte.
                     dropped_packets += 1
-                    continue
-                byte_data = np.packbits(decoded_bits[:usable]).tobytes()
-                stripe_id, data = StripeFramer.unpack_stripe(byte_data)
-                
-                if stripe_id is not None:
-                    if stripe_id not in received_stripes:
-                        stripe_img = ImageProcessor.decode_stripe(data)
-                        if stripe_img:
-                            received_stripes[stripe_id] = stripe_img
-                            if len(received_stripes) % 15 == 0 or len(received_stripes) == 1:
-                                print(f"   Decoded {len(received_stripes)}/{Config.NUM_STRIPES} stripes...")
-                        else:
-                            dropped_packets += 1
                 else:
-                    dropped_packets += 1
+                    byte_data = np.packbits(decoded_bits[:usable]).tobytes()
+                    stripe_id, data = StripeFramer.unpack_stripe(byte_data)
+
+                    if stripe_id is not None:
+                        if stripe_id not in received_stripes:
+                            stripe_img = ImageProcessor.decode_stripe(data)
+                            if stripe_img:
+                                received_stripes[stripe_id] = stripe_img
+                                if len(received_stripes) % 15 == 0 or len(received_stripes) == 1:
+                                    print(f"   Decoded {len(received_stripes)}/{Config.NUM_STRIPES} stripes...")
+                            else:
+                                dropped_packets += 1
+                    else:
+                        dropped_packets += 1
         else:
             ptr += 512 # Skip
 
