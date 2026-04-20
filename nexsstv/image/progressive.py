@@ -1,28 +1,80 @@
 import io
 from PIL import Image, ImageOps
 import numpy as np
+from nexsstv.config import Config
 
 class ImageProcessor:
-    TARGET_RES = (800, 600)
-    STRIPE_HEIGHT = 8  # 600 / 75 = 8
-    NUM_STRIPES = 75
+    TARGET_RES = Config.TARGET_RES
+    STRIPE_HEIGHT = Config.STRIPE_HEIGHT
+    NUM_STRIPES = Config.NUM_STRIPES
+    SCALE_FACTORS = (1.0, 0.75, 0.5, 0.375, 0.25)
+    QUALITY_STEP = 3
+    MIN_REDUCED_WIDTH = 64
 
     @staticmethod
-    def encode_image(image_path, quality=30):
+    def encode_image(image_path, quality=30, max_bytes=None):
         """Resizes image to 800x600 and splits into independent WebP stripes."""
-        img = Image.open(image_path)
+        img = Image.open(image_path).convert("RGB")
         # Use 'fit' to fill 800x600 without stretching (crops if necessary)
         img = ImageOps.fit(img, ImageProcessor.TARGET_RES, Image.Resampling.LANCZOS)
         
         stripes = []
         for i in range(ImageProcessor.NUM_STRIPES):
-            box = (0, i * ImageProcessor.STRIPE_HEIGHT, 800, (i + 1) * ImageProcessor.STRIPE_HEIGHT)
+            box = (
+                0,
+                i * ImageProcessor.STRIPE_HEIGHT,
+                ImageProcessor.TARGET_RES[0],
+                (i + 1) * ImageProcessor.STRIPE_HEIGHT,
+            )
             stripe_img = img.crop(box)
-            
-            output = io.BytesIO()
-            # Independent WebP per stripe
-            stripe_img.save(output, format='WEBP', quality=quality)
-            stripes.append(output.getvalue())
+
+            best = None
+            for scale in ImageProcessor.SCALE_FACTORS:
+                if scale < 1.0:
+                    w = max(1, int(ImageProcessor.TARGET_RES[0] * scale))
+                    if w < ImageProcessor.MIN_REDUCED_WIDTH:
+                        break
+                    reduced = stripe_img.resize((w, ImageProcessor.STRIPE_HEIGHT), Image.Resampling.LANCZOS)
+                    # Bilinear upsampling is intentionally softer and often compresses better at low bit budgets.
+                    candidate_img = reduced.resize((ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), Image.Resampling.BILINEAR)
+                else:
+                    candidate_img = stripe_img
+
+                # Keep perfectly clean stripes when lossless fits in the budget.
+                if max_bytes is not None:
+                    output = io.BytesIO()
+                    candidate_img.save(output, format='WEBP', lossless=True, method=6)
+                    lossless = output.getvalue()
+                    best = lossless if best is None or len(lossless) < len(best) else best
+                    if len(lossless) <= max_bytes:
+                        stripes.append(lossless)
+                        break
+
+                q = int(quality)
+                while q >= 1:
+                    output = io.BytesIO()
+                    candidate_img.save(output, format='WEBP', quality=q, method=6)
+                    data = output.getvalue()
+                    best = data if best is None or len(data) < len(best) else best
+                    if max_bytes is None or len(data) <= max_bytes:
+                        stripes.append(data)
+                        break
+                    q -= ImageProcessor.QUALITY_STEP
+                else:
+                    continue
+                break
+            else:
+                # Last-resort fallback when no scale/quality candidate can meet the byte budget.
+                arr = np.array(stripe_img).reshape(-1, 3)
+                average_color = tuple(np.mean(arr, axis=0).astype(np.uint8).tolist())
+                flat = Image.new('RGB', (ImageProcessor.TARGET_RES[0], ImageProcessor.STRIPE_HEIGHT), average_color)
+                output = io.BytesIO()
+                flat.save(output, format='WEBP', quality=1, method=6)
+                data = output.getvalue()
+                if best is None or len(data) <= len(best):
+                    stripes.append(data)
+                else:
+                    stripes.append(best)
             
         return stripes
 
